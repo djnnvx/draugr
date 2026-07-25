@@ -22,8 +22,11 @@ ET_DYN  :: 3
 ET_CORE :: 4
 
 EM_386     :: 3
-EM_X86_64  :: 62
+EM_MIPS    :: 8
+EM_PPC     :: 20
+EM_PPC64   :: 21
 EM_ARM     :: 40
+EM_X86_64  :: 62
 EM_AARCH64 :: 183
 EM_RISCV   :: 243
 

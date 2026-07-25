@@ -130,8 +130,11 @@ type_to_str :: proc(t: u16) -> string {
 machine_to_str :: proc(m: u16) -> string {
 	switch m {
 	case EM_386:     return "x86 (i386)"
-	case EM_X86_64:  return "x86-64"
+	case EM_MIPS:    return "MIPS"
+	case EM_PPC:     return "PowerPC"
+	case EM_PPC64:   return "PowerPC64"
 	case EM_ARM:     return "ARM"
+	case EM_X86_64:  return "x86-64"
 	case EM_AARCH64: return "AArch64"
 	case EM_RISCV:   return "RISC-V"
 	}

@@ -183,11 +183,20 @@ test_parse_header_machine_riscv :: proc(t: ^testing.T) {
 	data := make([]u8, 64)
 	defer delete(data)
 	make_elf64_header(data, ET_EXEC, EM_RISCV)
-	
+
 	header, err := parse_header(data)
-	
+
 	testing.expect(t, err == "")
 	testing.expect(t, header.machine == EM_RISCV, "machine should be RISC-V")
+}
+
+@(test)
+test_machine_str_covers_firmware_arches :: proc(t: ^testing.T) {
+	testing.expect_value(t, machine_to_str(EM_MIPS), "MIPS")
+	testing.expect_value(t, machine_to_str(EM_PPC), "PowerPC")
+	testing.expect_value(t, machine_to_str(EM_PPC64), "PowerPC64")
+	testing.expect_value(t, machine_to_str(EM_ARM), "ARM")
+	testing.expect_value(t, machine_to_str(EM_AARCH64), "AArch64")
 }
 
 @(test)
