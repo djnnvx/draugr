@@ -433,33 +433,25 @@ test_entropy_output_reports_open_failure :: proc(t: ^testing.T) {
 	testing.expect(t, err != "", "unwritable out_path must surface an error")
 }
 
-DISASM_HEAD :: "Disassembly Analysis\n" +
-               "====================\n\n" +
-               "Executable Sections:\n" +
-               "Name" + SP17 + "Offset" + SP7 + "Size" + SP9 + "VAddr\n" +
-               DASH49 + "\n"
-
-DISASM_FOOT :: "\nNote: Full disassembly requires external disassembler\n" +
-               "Consider integrating zydis or capstone for x86/x64\n"
-
 @(test)
-test_disasm_output_no_sections :: proc(t: ^testing.T) {
-	path := tmp_path("disasm_empty")
+test_code_output_no_sections :: proc(t: ^testing.T) {
+	path := tmp_path("code_none")
 	defer drop(path)
 
 	info := new_info()
 	defer elf.destroy(&info)
 
-	testing.expect_value(t, disasm_output([]u8{}, &info, path), "")
+	testing.expect_value(t, code_output([]u8{}, &info, path), "")
 
 	got := read_all(t, path)
 	defer delete(got)
-	testing.expect_value(t, got, DISASM_HEAD + DISASM_FOOT)
+	testing.expect(t, strings.contains(got, "no section headers"), "must fall back to segments")
+	testing.expect(t, strings.contains(got, "no PT_GNU_EH_FRAME"), "must report missing eh_frame_hdr")
 }
 
 @(test)
-test_disasm_output_lists_only_executable_sections :: proc(t: ^testing.T) {
-	path := tmp_path("disasm_exec")
+test_code_output_lists_only_executable_sections :: proc(t: ^testing.T) {
+	path := tmp_path("code_exec")
 	defer drop(path)
 
 	info := new_info()
@@ -468,38 +460,26 @@ test_disasm_output_lists_only_executable_sections :: proc(t: ^testing.T) {
 
 	append(&info.section_hdrs, elf.Section_Header{type = elf.SHT_NULL})
 	append(&info.section_hdrs, elf.Section_Header{
-		name   = 1,
-		type   = elf.SHT_PROGBITS,
-		flags  = elf.SHF_EXECINSTR,
-		addr   = 0x401000,
-		offset = 0,
-		size   = 4,
+		name = 1, type = elf.SHT_PROGBITS, flags = elf.SHF_EXECINSTR,
+		addr = 0x401000, offset = 0, size = 4,
 	})
 	append(&info.section_hdrs, elf.Section_Header{
-		name   = 7,
-		type   = elf.SHT_PROGBITS,
-		flags  = 0,
-		addr   = 0x402000,
-		offset = 4,
-		size   = 4,
+		name = 7, type = elf.SHT_PROGBITS, flags = 0,
+		addr = 0x402000, offset = 4, size = 4,
 	})
 
 	data := []u8{0x90, 0x90, 0xc3, 0x00, 0xde, 0xad, 0xbe, 0xef}
-	testing.expect_value(t, disasm_output(data, &info, path), "")
+	testing.expect_value(t, code_output(data, &info, path), "")
 
 	got := read_all(t, path)
 	defer delete(got)
-	testing.expect_value(t, got,
-		DISASM_HEAD +
-		".text" + SP16 + "0x00000000 0x00000004 0x0000000000401000\n" +
-		"  First 64 bytes (hex): 90 90 c3 00 \n" +
-		DISASM_FOOT)
+	testing.expect(t, strings.contains(got, ".text"), ".text must be listed")
 	testing.expect(t, !strings.contains(got, ".data"), "non-executable sections must be skipped")
 }
 
 @(test)
-test_disasm_output_caps_hex_preview_at_64_bytes :: proc(t: ^testing.T) {
-	path := tmp_path("disasm_cap")
+test_code_output_skips_nobits_and_out_of_file_sections :: proc(t: ^testing.T) {
+	path := tmp_path("code_nobits")
 	defer drop(path)
 
 	info := new_info()
@@ -507,90 +487,59 @@ test_disasm_output_caps_hex_preview_at_64_bytes :: proc(t: ^testing.T) {
 	info.shstrtab = SHSTRTAB[:]
 
 	append(&info.section_hdrs, elf.Section_Header{
-		name  = 1,
-		type  = elf.SHT_PROGBITS,
-		flags = elf.SHF_EXECINSTR,
-		size  = 200,
+		name = 1, type = elf.SHT_NOBITS, flags = elf.SHF_EXECINSTR, size = 100,
 	})
-
-	data := make([]u8, 200)
-	defer delete(data)
-
-	testing.expect_value(t, disasm_output(data, &info, path), "")
-
-	got := read_all(t, path)
-	defer delete(got)
-
-	PREFIX :: "  First 64 bytes (hex): "
-	start := strings.index(got, PREFIX)
-	testing.expect(t, start >= 0, "hex preview line must be present")
-	if start < 0 {
-		return
-	}
-
-	rest := got[start + len(PREFIX):]
-	end := strings.index_byte(rest, '\n')
-	testing.expect(t, end >= 0, "hex preview line must be terminated")
-	if end < 0 {
-		return
-	}
-
-	fields := strings.fields(rest[:end], context.allocator)
-	defer delete(fields)
-	testing.expect_value(t, len(fields), 64)
-}
-
-@(test)
-test_disasm_output_clamps_section_running_past_eof :: proc(t: ^testing.T) {
-	path := tmp_path("disasm_clamp")
-	defer drop(path)
-
-	info := new_info()
-	defer elf.destroy(&info)
-	info.shstrtab = SHSTRTAB[:]
-
 	append(&info.section_hdrs, elf.Section_Header{
-		name   = 1,
-		type   = elf.SHT_PROGBITS,
-		flags  = elf.SHF_EXECINSTR,
-		offset = 4,
-		size   = 100,
-	})
-
-	data := []u8{0, 0, 0, 0, 0xaa, 0xbb}
-	testing.expect_value(t, disasm_output(data, &info, path), "")
-
-	got := read_all(t, path)
-	defer delete(got)
-	testing.expect(t, strings.contains(got, "  First 64 bytes (hex): aa bb \n"),
-		"preview must stop at end of file")
-}
-
-@(test)
-test_disasm_output_skips_preview_for_section_beyond_eof :: proc(t: ^testing.T) {
-	path := tmp_path("disasm_beyond")
-	defer drop(path)
-
-	info := new_info()
-	defer elf.destroy(&info)
-	info.shstrtab = SHSTRTAB[:]
-
-	append(&info.section_hdrs, elf.Section_Header{
-		name   = 1,
-		type   = elf.SHT_PROGBITS,
-		flags  = elf.SHF_EXECINSTR,
-		offset = 1000,
-		size   = 4,
+		name = 7, type = elf.SHT_PROGBITS, flags = elf.SHF_EXECINSTR,
+		offset = 1000, size = 4,
 	})
 
 	data := []u8{1, 2, 3, 4}
-	testing.expect_value(t, disasm_output(data, &info, path), "")
+	testing.expect_value(t, code_output(data, &info, path), "")
 
 	got := read_all(t, path)
 	defer delete(got)
-	testing.expect(t, strings.contains(got, ".text"), "section row must still be listed")
-	testing.expect(t, !strings.contains(got, "First 64 bytes"),
-		"out-of-file section must not print a preview")
+	testing.expect(t, !strings.contains(got, ".text"), "SHT_NOBITS must be skipped")
+	testing.expect(t, strings.contains(got, ".data"), "out-of-file section is still listed")
+	testing.expect(t, strings.contains(got, "0.00"), "unreadable section entropy is zero")
+}
+
+@(test)
+test_code_output_flags_entry_outside_pt_load :: proc(t: ^testing.T) {
+	path := tmp_path("code_entry_out")
+	defer drop(path)
+
+	info := new_info()
+	defer elf.destroy(&info)
+	info.header.entry = 0xdeadbeef
+	append(&info.program_hdrs, elf.Program_Header{
+		type = elf.PT_LOAD, vaddr = 0x400000, memsz = 0x1000, flags = elf.PF_R | elf.PF_X,
+	})
+
+	testing.expect_value(t, code_output([]u8{}, &info, path), "")
+
+	got := read_all(t, path)
+	defer delete(got)
+	testing.expect(t, strings.contains(got, "outside every PT_LOAD"), "must flag unmapped entry")
+}
+
+@(test)
+test_code_output_flags_entry_in_non_executable_segment :: proc(t: ^testing.T) {
+	path := tmp_path("code_entry_nx")
+	defer drop(path)
+
+	info := new_info()
+	defer elf.destroy(&info)
+	info.header.entry = 0x400100
+	append(&info.program_hdrs, elf.Program_Header{
+		type = elf.PT_LOAD, vaddr = 0x400000, memsz = 0x1000, flags = elf.PF_R | elf.PF_W,
+	})
+
+	testing.expect_value(t, code_output([]u8{}, &info, path), "")
+
+	got := read_all(t, path)
+	defer delete(got)
+	testing.expect(t, strings.contains(got, "non-executable segment"), "must flag NX entry")
 }
 
 MAP_HEAD :: "ELF Memory Map\n" +
@@ -754,16 +703,20 @@ test_map_output_skips_bar_for_pt_null :: proc(t: ^testing.T) {
 	testing.expect(t, !strings.contains(got, "  [|"), "PT_NULL must not draw a bar")
 }
 
-// BUG: print_bar computes offset*50/u64(total) with total = len(data).
-// Empty data divides by zero and kills the process with SIGILL, so this test
-// cannot clean up after itself. It writes to /dev/null to leave nothing behind.
 @(test)
-test_map_output_empty_data_with_segment_divides_by_zero :: proc(t: ^testing.T) {
+test_map_output_empty_data_draws_no_bar :: proc(t: ^testing.T) {
+	path := tmp_path("map_empty_bar")
+	defer drop(path)
+
 	info := new_info()
 	defer elf.destroy(&info)
 	append(&info.program_hdrs, elf.Program_Header{type = elf.PT_LOAD, filesz = 1, memsz = 1})
 
-	testing.expect_value(t, map_output([]u8{}, &info, "/dev/null"), "")
+	testing.expect_value(t, map_output([]u8{}, &info, path), "")
+
+	got := read_all(t, path)
+	defer delete(got)
+	testing.expect(t, !strings.contains(got, "  [|"), "empty data must not draw a bar")
 }
 
 @(test)
@@ -805,26 +758,76 @@ test_map_output_reports_open_failure :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_remap_output_stub_reaches_out_file :: proc(t: ^testing.T) {
-	path := tmp_path("remap_stub")
-	defer drop(path)
-
+test_bin_diff_missing_reference :: proc(t: ^testing.T) {
 	info := new_info()
 	defer elf.destroy(&info)
 
-	testing.expect_value(t, remap_output([]u8{}, &info, "/proto/path", path), "")
-
-	got := read_all(t, path)
-	defer delete(got)
-	testing.expect_value(t, got, "ELF Remapping (stub - prototype: /proto/path)\n")
+	err := bin_diff_output([]u8{}, &info, "/draugr_no_such_file_4c1f", "")
+	testing.expect(t, strings.contains(err, "failed to read"), "missing reference must surface an error")
 }
 
 @(test)
-test_remap_output_reports_open_failure :: proc(t: ^testing.T) {
+test_bin_diff_non_elf_reference :: proc(t: ^testing.T) {
+	path := tmp_path("bindiff_notelf")
+	defer drop(path)
+	_ = os.write_entire_file(path, []u8{'n', 'o', 'p', 'e'})
+
 	info := new_info()
 	defer elf.destroy(&info)
 
-	err := remap_output([]u8{}, &info, "/proto/path", "/draugr_no_such_dir_4c1f/remap.txt")
+	err := bin_diff_output([]u8{}, &info, path, "")
+	testing.expect(t, strings.contains(err, "not an ELF"), "non-ELF reference must surface an error")
+}
 
-	testing.expect(t, err != "", "unwritable out_path must surface an error")
+@(test)
+test_bin_diff_reports_section_and_dependency_changes :: proc(t: ^testing.T) {
+	ref_path := tmp_path("bindiff_ref")
+	defer drop(ref_path)
+	out_path := tmp_path("bindiff_out")
+	defer drop(out_path)
+
+	ref := elf.build_dynamic_elf(true, true, elf.DEFAULT_DYN_ENTRIES[:])
+	defer delete(ref)
+	_ = os.write_entire_file(ref_path, ref)
+
+	entries := [][2]u64{
+		{elf.DT_NEEDED, elf.DYN_OFF_NEEDED_1},
+		{elf.DT_STRTAB, elf.DYN_BASE + 0x200},
+		{elf.DT_STRSZ,  u64(len(elf.DYN_STR))},
+		{elf.DT_NULL,   0},
+	}
+	mine := elf.build_dynamic_elf(true, true, entries[:])
+	defer delete(mine)
+
+	info, _ := elf.load(mine)
+	defer elf.destroy(&info)
+
+	testing.expect_value(t, bin_diff_output(mine, &info, ref_path, out_path), "")
+
+	got := read_all(t, out_path)
+	defer delete(got)
+	testing.expect(t, strings.contains(got, "+ libc.so.6"), "reference-only dependency must show as added")
+	testing.expect(t, strings.contains(got, "/opt/runpath"), "runpath change must be reported")
+}
+
+@(test)
+test_bin_diff_identical_files_report_no_changes :: proc(t: ^testing.T) {
+	ref_path := tmp_path("bindiff_same_ref")
+	defer drop(ref_path)
+	out_path := tmp_path("bindiff_same_out")
+	defer drop(out_path)
+
+	img := elf.build_dynamic_elf(true, true, elf.DEFAULT_DYN_ENTRIES[:])
+	defer delete(img)
+	_ = os.write_entire_file(ref_path, img)
+
+	info, _ := elf.load(img)
+	defer elf.destroy(&info)
+
+	testing.expect_value(t, bin_diff_output(img, &info, ref_path, out_path), "")
+
+	got := read_all(t, out_path)
+	defer delete(got)
+	testing.expect(t, strings.contains(got, "unchanged"), "identical dependencies must report unchanged")
+	testing.expect(t, !strings.contains(got, "->"), "identical files must show no deltas")
 }

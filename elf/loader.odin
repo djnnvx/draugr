@@ -16,11 +16,16 @@ load :: proc(data: []u8) -> (ELF_Info, string) {
 	info.section_hdrs = make([dynamic]Section_Header)
 	info.symbols = make([dynamic]Symbol)
 	info.dyn_symbols = make([dynamic]Symbol)
+	info.dyn_entries = make([dynamic]Dyn_Entry)
+	info.needed = make([dynamic]string)
+	info.relocs = make([dynamic]Reloc)
 
 	// Sections first: PN_XNUM resolves e_phnum through section[0].
 	parse_section_headers(data, &info)
 	parse_program_headers(data, &info)
 	parse_symbols(data, &info)
+	parse_dynamic(data, &info)
+	parse_relocs(data, &info)
 	
 	return info, ""
 }
@@ -30,6 +35,9 @@ destroy :: proc(info: ^ELF_Info) {
 	delete(info.section_hdrs)
 	delete(info.symbols)
 	delete(info.dyn_symbols)
+	delete(info.dyn_entries)
+	delete(info.needed)
+	delete(info.relocs)
 }
 
 get_section_name :: proc(info: ^ELF_Info, shdr: Section_Header) -> string {
@@ -166,6 +174,9 @@ parse_section_headers :: proc(data: []u8, info: ^ELF_Info) {
 	is_64bit := info.is_64bit
 	order := byte_order(info.header)
 
+	// e_shoff == 0 means no section header table, so shnum == 0 is not the
+	// SHN_XINDEX escape hatch and section[0] would be the ELF header itself.
+	if header.shoff == 0 { return }
 	if !in_bounds(data, header.shoff, 0) { return }
 
 	min_size := SHDR_SIZE_64 if is_64bit else SHDR_SIZE_32

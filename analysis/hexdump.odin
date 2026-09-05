@@ -17,7 +17,6 @@ default_config :: proc() -> HexdumpConfig {
 	}
 }
 
-// Returns empty string on success, error message on failure
 hexdump :: proc(data: []u8, offset: u64, out_path: string) -> string {
 	cfg := default_config()
 

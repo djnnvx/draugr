@@ -3,13 +3,8 @@ package elf
 import "core:fmt"
 import "core:os"
 
-print_info :: proc(info: ^ELF_Info, verbose: bool, json: bool) {
+print_info :: proc(info: ^ELF_Info, verbose: bool) {
 	f := os.stdout
-
-	if json {
-		print_info_json(info)
-		return
-	}
 
 	fmt.fprintf(f, "ELF File Information\n")
 	fmt.fprintf(f, "====================\n\n")
@@ -38,6 +33,22 @@ print_info :: proc(info: ^ELF_Info, verbose: bool, json: bool) {
 		fmt.fprintf(f, "Interpreter offset: 0x%x\n", info.interp_offset)
 	}
 
+	if info.soname != "" {
+		fmt.fprintf(f, "SONAME:    %s\n", info.soname)
+	}
+	if info.rpath != "" {
+		fmt.fprintf(f, "RPATH:     %s\n", info.rpath)
+	}
+	if info.runpath != "" {
+		fmt.fprintf(f, "RUNPATH:   %s\n", info.runpath)
+	}
+	if len(info.needed) > 0 {
+		fmt.fprintf(f, "\nNeeded Libraries: %d\n", len(info.needed))
+		for lib in info.needed {
+			fmt.fprintf(f, "  %s\n", lib)
+		}
+	}
+
 	fmt.fprintf(f, "\n")
 	fmt.fprintf(f, "Program Headers: %d\n", len(info.program_hdrs))
 	fmt.fprintf(f, "Section Headers: %d\n", len(info.section_hdrs))
@@ -45,6 +56,17 @@ print_info :: proc(info: ^ELF_Info, verbose: bool, json: bool) {
 	fmt.fprintf(f, "Symbols (dynamic): %d\n", len(info.dyn_symbols))
 
 	if verbose {
+		if len(info.dyn_entries) > 0 {
+			fmt.fprintf(f, "\nDynamic Section: %d entries\n", len(info.dyn_entries))
+			for e in info.dyn_entries {
+				if name := dyn_string(info, e); name != "" {
+					fmt.fprintf(f, "  %-14s %s\n", dyn_tag_str(e.tag), name)
+				} else {
+					fmt.fprintf(f, "  %-14s 0x%x\n", dyn_tag_str(e.tag), e.val)
+				}
+			}
+		}
+
 		fmt.fprintf(f, "\n")
 		fmt.fprintf(f, "Detailed Sections:\n")
 		for i := 0; i < len(info.section_hdrs); i += 1 {
@@ -87,33 +109,6 @@ print_info :: proc(info: ^ELF_Info, verbose: bool, json: bool) {
 			}
 		}
 	}
-}
-
-print_info_json :: proc(info: ^ELF_Info) {
-	class_bits := 32
-	if info.is_64bit {
-		class_bits = 64
-	}
-	fmt.println("{")
-	fmt.printf("  \"class\": %d,\n", class_bits)
-	fmt.printf("  \"type\": \"%s\",\n", type_to_str(info.header.type))
-	fmt.printf("  \"machine\": \"%s\",\n", machine_to_str(info.header.machine))
-	fmt.printf("  \"entry\": \"0x%016x\",\n", info.header.entry)
-	pie_str := "false"
-	if info.is_pie {
-		pie_str = "true"
-	}
-	fmt.printf("  \"pie\": %s,\n", pie_str)
-	dyn_str := "false"
-	if info.is_dynamic {
-		dyn_str = "true"
-	}
-	fmt.printf("  \"dynamic\": %s,\n", dyn_str)
-	fmt.printf("  \"program_headers\": %d,\n", len(info.program_hdrs))
-	fmt.printf("  \"section_headers\": %d,\n", len(info.section_hdrs))
-	fmt.printf("  \"symbols_static\": %d,\n", len(info.symbols))
-	fmt.printf("  \"symbols_dynamic\": %d\n", len(info.dyn_symbols))
-	fmt.printf("}\n")
 }
 
 type_to_str :: proc(t: u16) -> string {
@@ -229,6 +224,7 @@ segment_type_str :: proc(t: u32) -> string {
 	case PT_GNU_EH_FRAME: return "GNU_EH_FRAME"
 	case PT_GNU_STACK:    return "GNU_STACK"
 	case PT_GNU_RELRO:    return "GNU_RELRO"
+	case PT_GNU_PROPERTY: return "GNU_PROPERTY"
 	}
 	return fmt.tprintf("0x%x", t)
 }
@@ -237,4 +233,58 @@ segment_type_str :: proc(t: u32) -> string {
 flags_to_str :: proc(flags: u64) -> string {
 	@static table := [8]string{"   ", "  X", " W ", " WX", "R  ", "R X", "RW ", "RWX"}
 	return table[flags & 7]
+}
+
+print_checksec :: proc(info: ^ELF_Info) {
+	f := os.stdout
+	c := checksec(info)
+
+	fmt.fprintf(f, "%-12s %s\n", "RELRO:", relro_str(c.relro))
+	fmt.fprintf(f, "%-12s %s\n", "Stack:", "Canary found" if c.canary else "No canary found")
+	fmt.fprintf(f, "%-12s %s\n", "NX:", nx_str(c.nx))
+	fmt.fprintf(f, "%-12s %s\n", "PIE:", pie_str(c.pie))
+	fmt.fprintf(f, "%-12s %s\n", "RPATH:", c.rpath if c.rpath != "" else "No RPATH")
+	fmt.fprintf(f, "%-12s %s\n", "RUNPATH:", c.runpath if c.runpath != "" else "No RUNPATH")
+	fmt.fprintf(f, "%-12s %s\n", "Symbols:", "No symbols" if c.stripped else "Symbols")
+	fmt.fprintf(f, "%-12s %d of %d fortifiable functions fortified", "FORTIFY:", c.fortified, c.fortifiable)
+	if c.partial > 0 {
+		fmt.fprintf(f, " (%d also imported unfortified)", c.partial)
+	}
+	fmt.fprintf(f, "\n")
+
+	if c.textrel {
+		fmt.fprintf(f, "%-12s DT_TEXTREL present, code segment is writable at load time\n", "TEXTREL:")
+	}
+	if c.rwx_segment {
+		fmt.fprintf(f, "%-12s a PT_LOAD segment is both writable and executable\n", "RWX:")
+	}
+}
+
+print_relocs :: proc(info: ^ELF_Info) {
+	f := os.stdout
+
+	if len(info.relocs) == 0 {
+		fmt.fprintf(f, "No relocations\n")
+		return
+	}
+
+	fmt.fprintf(f, "%-18s %-22s %-16s %s\n", "Offset", "Type", "Addend", "Symbol")
+	for r in info.relocs {
+		addend := fmt.tprintf("0x%x", r.addend) if r.kind == .Rela else "-"
+		fmt.fprintf(f, "0x%016x %-22s %-16s %s\n",
+			r.offset, reloc_type_str(info.header.machine, r.type), addend, r.sym_name)
+	}
+
+	fmt.fprintf(f, "\nPLT/GOT Map:\n")
+	slots := 0
+	for r in info.relocs {
+		if !is_jump_slot(info.header.machine, r.type) || r.sym_name == "" {
+			continue
+		}
+		slots += 1
+		fmt.fprintf(f, "  %-32s 0x%016x\n", r.sym_name, r.offset)
+	}
+	if slots == 0 {
+		fmt.fprintf(f, "  (no jump slots)\n")
+	}
 }

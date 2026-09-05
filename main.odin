@@ -13,17 +13,21 @@ Options :: struct {
 	elf_path    : string `args:"pos=0,required" usage:"ELF binary to analyse."`,
 	hexdump     : bool   `usage:"Hex dump entire file to stdout."`,
 	hexdump_out : string `usage:"Hex dump to file."`,
-	disasm      : bool   `usage:"Disassemble code sections."`,
-	disasm_out  : string `usage:"Disassemble to file."`,
+	code        : bool   `usage:"Code region report: executable sections, entry point, function starts."`,
+	code_out    : string `usage:"Code region report to file."`,
 	entropy     : bool   `usage:"Shannon entropy report."`,
 	entropy_out : string `usage:"Entropy report to file."`,
 	symbols     : bool   `usage:"Print symbol table (nm-like)."`,
 	sections    : bool   `usage:"Print section headers."`,
 	segments    : bool   `usage:"Print program headers (objdump -p style)."`,
 	show_map    : bool   `args:"name=map" usage:"Visual memory layout map."`,
-	remap       : string `usage:"Remap using this prototype file."`,
+	bin_diff    : string `args:"name=bin-diff" usage:"Diff this binary's layout against a reference ELF."`,
+	call_func   : string `args:"name=call-function" usage:"Load from memory and call this symbol."`,
+	call_args   : string `args:"name=call-args" usage:"Comma-separated args for --call-function: integers, or s:string."`,
+	checksec    : bool   `usage:"Hardening report: RELRO, NX, canary, PIE, RPATH, FORTIFY."`,
+	relocs      : bool   `usage:"Relocation table and PLT/GOT map."`,
 	info        : bool   `usage:"Print ELF summary only."`,
-	json        : bool   `usage:"Output in JSON format."`,
+	json        : bool   `usage:"Full structured dump as JSON (header, segments, sections, dynamic, symbols, relocations, GOT, checksec)."`,
 	verbose     : bool   `usage:"Verbose output."`,
 }
 
@@ -58,8 +62,23 @@ main :: proc() {
 		elf.machine_to_str(info.header.machine), bits, elf_type, dyn_type)
 	fmt.fprintln(os.stderr, "")
 
+	if opts.json {
+		if opts.hexdump || opts.hexdump_out != "" ||
+		   opts.entropy || opts.entropy_out != "" ||
+		   opts.code    || opts.code_out    != "" ||
+		   opts.show_map || opts.bin_diff != "" || opts.call_func != "" {
+			fmt.fprintln(os.stderr, "--json is not supported with --hexdump, --entropy, --code, --map, --bin-diff or --call-function")
+			os.exit(1)
+		}
+		if err := elf.print_json(&info); err != "" {
+			fmt.fprintln(os.stderr, err)
+			os.exit(1)
+		}
+		return
+	}
+
 	if opts.info {
-		elf.print_info(&info, opts.verbose, opts.json)
+		elf.print_info(&info, opts.verbose)
 		return
 	}
 
@@ -77,9 +96,21 @@ main :: proc() {
 		fmt.println("")
 	}
 
-	if opts.disasm || opts.disasm_out != "" {
-		section_header("Disassembly", opts.disasm_out)
-		report("Disasm", analysis.disasm_output(elf_data, &info, opts.disasm_out), &failed)
+	if opts.code || opts.code_out != "" {
+		section_header("Code Regions", opts.code_out)
+		report("Code", analysis.code_output(elf_data, &info, opts.code_out), &failed)
+		fmt.println("")
+	}
+
+	if opts.checksec {
+		section_header("Checksec", "")
+		elf.print_checksec(&info)
+		fmt.println("")
+	}
+
+	if opts.relocs {
+		section_header("Relocations", "")
+		elf.print_relocs(&info)
 		fmt.println("")
 	}
 
@@ -107,9 +138,15 @@ main :: proc() {
 		fmt.println("")
 	}
 
-	if opts.remap != "" {
-		section_header("Remap", "")
-		report("Remap", analysis.remap_output(elf_data, &info, opts.remap, ""), &failed)
+	if opts.call_func != "" {
+		section_header("Call Function", "")
+		report("Call", analysis.call_function(elf_data, &info, opts.elf_path, opts.call_func, opts.call_args), &failed)
+		fmt.println("")
+	}
+
+	if opts.bin_diff != "" {
+		section_header("Binary Diff", "")
+		report("BinDiff", analysis.bin_diff_output(elf_data, &info, opts.bin_diff, ""), &failed)
 		fmt.println("")
 	}
 

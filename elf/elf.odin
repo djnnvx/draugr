@@ -64,11 +64,14 @@ PT_TLS     :: 7
 PT_GNU_EH_FRAME :: 0x6474e550
 PT_GNU_STACK    :: 0x6474e551
 PT_GNU_RELRO    :: 0x6474e552
+PT_GNU_PROPERTY :: 0x6474e553
 
 PF_X :: 1
 PF_W :: 2
 PF_R :: 4
 
+SHF_WRITE     :: 1
+SHF_ALLOC     :: 2
 SHF_EXECINSTR :: 4
 
 SHT_NULL     :: 0
@@ -88,6 +91,7 @@ SHT_FINI_ARRAY    :: 15
 SHT_PREINIT_ARRAY :: 16
 SHT_GROUP         :: 17
 SHT_SYMTAB_SHNDX  :: 18
+SHT_RELR          :: 19
 SHT_GNU_ATTRIBUTES :: 0x6ffffff5
 SHT_GNU_HASH       :: 0x6ffffff6
 SHT_GNU_VERDEF     :: 0x6ffffffd
@@ -164,6 +168,12 @@ ELF_Info :: struct {
 	section_hdrs  : [dynamic]Section_Header,
 	symbols       : [dynamic]Symbol,
 	dyn_symbols   : [dynamic]Symbol,
+	dyn_entries   : [dynamic]Dyn_Entry,
+	needed        : [dynamic]string,
+	relocs        : [dynamic]Reloc,
+	soname        : string,
+	rpath         : string,
+	runpath       : string,
 	is_64bit      : bool,
 	is_pie        : bool,
 	is_dynamic    : bool,
