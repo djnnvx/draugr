@@ -1,4 +1,3 @@
-// analysis/disasm.odin - Disassembly (stub/simple)
 package analysis
 
 import "core:fmt"

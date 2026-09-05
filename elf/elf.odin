@@ -1,12 +1,7 @@
-// elf/elf.odin - Core ELF Structures
 package elf
 
 import "core:encoding/endian"
 import "core:fmt"
-
-//------------------------------------------------------------------------------
-// Public API - ELF Magic and Constants
-//------------------------------------------------------------------------------
 
 ELF_MAGIC :: [4]u8{0x7f, 'E', 'L', 'F'}
 
@@ -113,10 +108,6 @@ STT_FUNC    :: 2
 STT_SECTION :: 3
 STT_FILE    :: 4
 
-//------------------------------------------------------------------------------
-// Public API - ELF Structures
-//------------------------------------------------------------------------------
-
 ELF_Header :: struct {
 	class        : u8,
 	data         : u8,
@@ -182,10 +173,6 @@ ELF_Info :: struct {
 	dynstr        : []u8,
 }
 
-//------------------------------------------------------------------------------
-// Public API - Helper Functions
-//------------------------------------------------------------------------------
-
 // Overflow-safe: no addition that can wrap.
 in_bounds :: proc(data: []u8, offset: u64, size: u64) -> bool {
 	return offset <= u64(len(data)) && size <= u64(len(data)) - offset
@@ -215,10 +202,6 @@ read_u64 :: proc(data: []u8, offset: int, order: Byte_Order) -> u64 {
 	v, _ := endian.get_u64(data[offset:offset + 8], order)
 	return v
 }
-
-//------------------------------------------------------------------------------
-// Public API - Parsing Functions
-//------------------------------------------------------------------------------
 
 probe :: proc(data: []u8) -> bool {
 	if len(data) < 16 { return false }

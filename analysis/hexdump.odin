@@ -1,12 +1,7 @@
-// analysis/hexdump.odin - Hex dump functionality
 package analysis
 
 import "core:fmt"
 import "core:os"
-
-//------------------------------------------------------------------------------
-// Public API
-//------------------------------------------------------------------------------
 
 HexdumpConfig :: struct {
 	width       : int,
@@ -22,7 +17,6 @@ default_config :: proc() -> HexdumpConfig {
 	}
 }
 
-// hexdump performs a hex dump of data to stdout or file
 // Returns empty string on success, error message on failure
 hexdump :: proc(data: []u8, offset: u64, out_path: string) -> string {
 	cfg := default_config()
@@ -32,7 +26,6 @@ hexdump :: proc(data: []u8, offset: u64, out_path: string) -> string {
 		return err
 	}
 	defer close_out(f, out_path)
-
 
 	for i := 0; i < len(data); i += cfg.width {
 		if cfg.show_offset {

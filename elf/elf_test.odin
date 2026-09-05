@@ -1,4 +1,3 @@
-// elf/elf_test.odin - Unit tests for ELF parsing
 package elf
 
 import "core:mem"
@@ -301,10 +300,6 @@ test_load_elf32_basic :: proc(t: ^testing.T) {
 	testing.expect(t, err == "", "load should succeed")
 	testing.expect(t, info.is_64bit == false, "should be 32-bit")
 }
-
-//------------------------------------------------------------------------------
-// In-memory ELF image builder, parameterised by class and endianness
-//------------------------------------------------------------------------------
 
 TEXT_BLOB     :: "\x55\x89\xe5\x83\xec\x08\xc9\xc3"
 INTERP_BLOB   :: "/lib/ld-linux.so.2\x00"
@@ -628,10 +623,6 @@ build_elf :: proc(class: u8, endian: u8) -> Fixture {
 	return f
 }
 
-//------------------------------------------------------------------------------
-// Full image round-trip across every class/endianness combination
-//------------------------------------------------------------------------------
-
 SECTION_NAMES :: [8]string{"", ".text", ".interp", ".symtab", ".strtab", ".dynsym", ".dynstr", ".shstrtab"}
 SYMBOL_NAMES  :: [4]string{"", "counter", "main", "printf"}
 DYNSYM_NAMES  :: [2]string{"", "puts"}
@@ -736,9 +727,7 @@ test_full_image_elf64_be :: proc(t: ^testing.T) {
 	check_full_image(t, ELF_CLASS_64, ELF_DATA_MSB)
 }
 
-//------------------------------------------------------------------------------
 // Regression: ELF32 header fields must use the 32-bit layout
-//------------------------------------------------------------------------------
 
 build_elf32_header_only :: proc(little: bool, entry: u32, phoff: u32, shoff: u32, flags: u32) -> []u8 {
 	data := make([]u8, 52)
@@ -838,10 +827,6 @@ test_regression_elf32_program_headers_parse :: proc(t: ^testing.T) {
 	}
 }
 
-//------------------------------------------------------------------------------
-// Bounds helpers
-//------------------------------------------------------------------------------
-
 @(test)
 test_in_bounds :: proc(t: ^testing.T) {
 	data := make([]u8, 16)
@@ -930,10 +915,6 @@ test_getters_on_empty_slice :: proc(t: ^testing.T) {
 	testing.expect_value(t, read_u64(empty, 0, .Big), u64(0))
 }
 
-//------------------------------------------------------------------------------
-// is_dynamic detection
-//------------------------------------------------------------------------------
-
 build_elf64_with_segments :: proc(segs: []Program_Header) -> []u8 {
 	ehsize := 64
 	total := ehsize + len(segs) * 56
@@ -1013,10 +994,6 @@ test_is_dynamic_false_for_static :: proc(t: ^testing.T) {
 	testing.expect_value(t, info.interp_offset, u64(0))
 }
 
-//------------------------------------------------------------------------------
-// Allocation hygiene
-//------------------------------------------------------------------------------
-
 @(test)
 test_load_destroy_leaks_nothing :: proc(t: ^testing.T) {
 	track: mem.Tracking_Allocator
@@ -1043,10 +1020,6 @@ test_load_destroy_leaks_nothing :: proc(t: ^testing.T) {
 	testing.expect_value(t, len(track.allocation_map), 0)
 	testing.expect_value(t, len(track.bad_free_array), 0)
 }
-
-//------------------------------------------------------------------------------
-// Malformed input robustness
-//------------------------------------------------------------------------------
 
 POISON :: [7]u64{
 	0xFF00000000000000,
@@ -1368,10 +1341,6 @@ test_get_symbol_name_bounds :: proc(t: ^testing.T) {
 	testing.expect_value(t, get_symbol_name(empty, 0), "")
 	testing.expect_value(t, get_symbol_name(nil, 5), "")
 }
-
-//------------------------------------------------------------------------------
-// Printer
-//------------------------------------------------------------------------------
 
 @(test)
 test_printer_strings :: proc(t: ^testing.T) {

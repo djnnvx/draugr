@@ -1,4 +1,3 @@
-// analysis/analysis_test.odin - Unit tests for analysis functions
 package analysis
 
 import "core:fmt"
@@ -8,9 +7,7 @@ import "core:testing"
 
 import "../elf"
 
-//------------------------------------------------------------------------------
 // Layout constants - built by doubling so the widths are provable, not counted
-//------------------------------------------------------------------------------
 
 SP1  :: " "
 SP2  :: SP1 + SP1
@@ -54,10 +51,6 @@ HASH50 :: HASH25 + HASH25
 
 TOLERANCE :: 1e-9
 
-//------------------------------------------------------------------------------
-// Helpers
-//------------------------------------------------------------------------------
-
 tmp_path :: proc(name: string) -> string {
 	dir, err := os.temp_directory(context.allocator)
 	if err != nil {
@@ -93,10 +86,6 @@ new_info :: proc() -> elf.ELF_Info {
 
 // offset 1 -> ".text", offset 7 -> ".data"
 SHSTRTAB := [?]u8{0, '.', 't', 'e', 'x', 't', 0, '.', 'd', 'a', 't', 'a', 0}
-
-//------------------------------------------------------------------------------
-// Tests - open_out / close_out
-//------------------------------------------------------------------------------
 
 @(test)
 test_open_out_empty_path_returns_stdout :: proc(t: ^testing.T) {
@@ -148,10 +137,6 @@ test_open_out_creates_file_and_close_out_persists_it :: proc(t: ^testing.T) {
 	defer delete(got)
 	testing.expect_value(t, got, "draugr")
 }
-
-//------------------------------------------------------------------------------
-// Tests - hexdump
-//------------------------------------------------------------------------------
 
 @(test)
 test_hexdump_empty_data :: proc(t: ^testing.T) {
@@ -271,10 +256,6 @@ test_hexdump_printable_boundaries_are_inclusive :: proc(t: ^testing.T) {
 	testing.expect_value(t, got, "00000000  1f 20 7e 7f" + SP38 + "|. ~." + SP12 + "|\n")
 }
 
-//------------------------------------------------------------------------------
-// Tests - calculate_entropy
-//------------------------------------------------------------------------------
-
 @(test)
 test_calculate_entropy_empty_is_zero :: proc(t: ^testing.T) {
 	expect_near(t, calculate_entropy([]u8{}), 0.0)
@@ -318,10 +299,6 @@ test_calculate_entropy_lopsided_is_between_zero_and_one :: proc(t: ^testing.T) {
 	testing.expectf(t, entropy < 1.0, "7:1 split should be under 1 bit, got %.12f", entropy)
 	expect_near(t, entropy, 0.543564443)
 }
-
-//------------------------------------------------------------------------------
-// Tests - entropy_output
-//------------------------------------------------------------------------------
 
 ENTROPY_HEAD :: "Entropy Analysis (block size: 256 bytes)\n" +
                 "Offset" + SP7 + "Size" + SP3 + "Entropy\n" +
@@ -455,10 +432,6 @@ test_entropy_output_reports_open_failure :: proc(t: ^testing.T) {
 
 	testing.expect(t, err != "", "unwritable out_path must surface an error")
 }
-
-//------------------------------------------------------------------------------
-// Tests - disasm_output
-//------------------------------------------------------------------------------
 
 DISASM_HEAD :: "Disassembly Analysis\n" +
                "====================\n\n" +
@@ -619,10 +592,6 @@ test_disasm_output_skips_preview_for_section_beyond_eof :: proc(t: ^testing.T) {
 	testing.expect(t, !strings.contains(got, "First 64 bytes"),
 		"out-of-file section must not print a preview")
 }
-
-//------------------------------------------------------------------------------
-// Tests - map_output
-//------------------------------------------------------------------------------
 
 MAP_HEAD :: "ELF Memory Map\n" +
             "==============\n\n" +
@@ -834,10 +803,6 @@ test_map_output_reports_open_failure :: proc(t: ^testing.T) {
 
 	testing.expect(t, err != "", "unwritable out_path must surface an error")
 }
-
-//------------------------------------------------------------------------------
-// Tests - remap_output
-//------------------------------------------------------------------------------
 
 @(test)
 test_remap_output_stub_reaches_out_file :: proc(t: ^testing.T) {

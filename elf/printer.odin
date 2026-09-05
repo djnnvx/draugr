@@ -1,4 +1,3 @@
-// elf/printer.odin - ELF info printing
 package elf
 
 import "core:fmt"

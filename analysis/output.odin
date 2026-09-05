@@ -1,4 +1,3 @@
-// analysis/output.odin - stdout-or-file output handles
 package analysis
 
 import "core:fmt"

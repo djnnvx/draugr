@@ -1,4 +1,3 @@
-// main.odin - draugr: ELF mapping and analysis tool
 package main
 
 import "core:flags"
@@ -135,7 +134,6 @@ section_header :: proc(title: string, out_path: string) {
 		fmt.fprintf(os.stderr, "%s -> %s\n", title, out_path)
 	}
 }
-
 
 print_symbols :: proc(info: ^elf.ELF_Info) {
 	print_symbol_table(info.symbols[:])

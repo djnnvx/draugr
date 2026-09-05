@@ -1,27 +1,19 @@
-// analysis/entropy.odin - Shannon entropy analysis
 package analysis
 
 import "core:fmt"
 import "core:math"
 import "core:os"
 
-//------------------------------------------------------------------------------
-// Public API
-//------------------------------------------------------------------------------
-
-// calculate_entropy calculates Shannon entropy for data (0.0 to 8.0)
 calculate_entropy :: proc(data: []u8) -> f64 {
 	if len(data) == 0 {
 		return 0.0
 	}
 	
-	// Count byte frequencies
 	freq: [256]f64
 	for b in data {
 		freq[b] += 1.0
 	}
 	
-	// Calculate entropy
 	total := f64(len(data))
 	entropy := 0.0
 	for i := 0; i < len(freq); i += 1 {
@@ -35,8 +27,6 @@ calculate_entropy :: proc(data: []u8) -> f64 {
 	return entropy
 }
 
-// entropy_output prints entropy analysis for the entire file
-// Uses 256-byte blocks for granular analysis
 entropy_output :: proc(data: []u8, out_path: string) -> string {
 	f, err := open_out(out_path)
 	if err != "" {
@@ -62,11 +52,9 @@ entropy_output :: proc(data: []u8, out_path: string) -> string {
 		fmt.fprintf(f, "0x%08x   %-6s %.4f\n", i, fmt.tprintf("%d", len(block)), entropy)
 	}
 	
-	// Overall entropy
 	overall := calculate_entropy(data)
 	fmt.fprintf(f, "\nOverall entropy: %.4f bits/byte\n", overall)
 	
-	// Classification
 	if overall < 4.0 {
 		fmt.fprintf(f, "Classification: Low entropy (text/code)\n")
 	} else if overall < 7.0 {

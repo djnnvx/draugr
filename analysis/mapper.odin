@@ -1,14 +1,9 @@
-// analysis/mapper.odin - ELF memory mapping visualization
 package analysis
 
 import "core:fmt"
 import "core:os"
 
 import "../elf"
-
-//------------------------------------------------------------------------------
-// Public API
-//------------------------------------------------------------------------------
 
 map_output :: proc(data: []u8, info: ^elf.ELF_Info, out_path: string) -> string {
 	f, err := open_out(out_path)
@@ -89,10 +84,6 @@ remap_output :: proc(data: []u8, info: ^elf.ELF_Info, proto_path: string, out_pa
 	fmt.fprintf(f, "ELF Remapping (stub - prototype: %s)\n", proto_path)
 	return ""
 }
-
-//------------------------------------------------------------------------------
-// Internal Helpers
-//------------------------------------------------------------------------------
 
 print_bar :: proc(f: ^os.File, offset: u64, size: u64, total: int) {
 	if total <= 0 {

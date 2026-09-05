@@ -1,4 +1,3 @@
-// elf/loader.odin - Full ELF parsing (segments, sections, symbols)
 package elf
 
 load :: proc(data: []u8) -> (ELF_Info, string) {
