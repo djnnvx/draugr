@@ -45,8 +45,8 @@ Both `--flag value` and `--flag=value` work, and a single dash is accepted.
 
 ### Output streams
 
-Data goes to **stdout**. Headers, separators and the `arch=` summary go to **stderr**.
-So the tool stays readable on a terminal and pipeable everywhere else.
+Data goes to `stdout`. Headers, separators and the `arch=` summary go to `stderr`, so
+piped output stays clean.
 
 ```sh
 draugr --json /bin/ls | jq .needed
@@ -65,7 +65,7 @@ flags `DT_TEXTREL` and any RWX `PT_LOAD` segment.
 
 Three places where it deliberately disagrees with `checksec(1)`:
 
-- **NX with no `PT_GNU_STACK`** reports `Unknown`, not `Enabled`.
+- **NX with no `PT_GNU_STACK`** reports `Unknown`.
 - **PIE** separates `PIE`, `Static PIE`, `Shared library` and `ET_EXEC`.
 - **FORTIFY** counts distinct functions. `checksec(1)` counts a function twice when it is
   imported both fortified and unfortified.
@@ -101,6 +101,6 @@ structs are not supported, and the return value is read as a 64-bit integer.
 
 `--code` recovers function entry addresses from the `.eh_frame_hdr` binary search table.
 
-draugr does not disassemble. Pipe to `objdump -d` for that.
+draugr does not disassemble; use `objdump -d` for that.
 
 
