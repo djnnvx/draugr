@@ -29,6 +29,7 @@ draugr <elf-path> [flags]
 | `--code` | Code regions: executable sections with entropy, entry point, function starts |
 | `--call-function <sym>` | Load the file from memory and call one symbol |
 | `--call-args <list>` | Arguments for `--call-function` |
+| `--patch <list>` | In-memory patches applied before `--call-function` (x86-64). `;`-separated: `sym=ret:N`, `sym=jmp:target`, `got:sym=target` |
 | `--bin-diff <file>` | Diff this binary's layout against a reference ELF |
 | `--json` | Full structured dump: header, segments, sections, dynamic, symbols, relocations, GOT, checksec |
 | `--verbose` | Verbose output |

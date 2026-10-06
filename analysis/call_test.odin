@@ -1,5 +1,6 @@
 package analysis
 
+import "core:fmt"
 import "core:testing"
 
 @(test)
@@ -47,6 +48,42 @@ test_call_args_reject_junk_and_overflow :: proc(t: ^testing.T) {
 	too_many, err2 := parse_call_args("1,2,3,4,5,6,7")
 	defer delete(too_many)
 	testing.expect(t, err2 != "", "more than 6 arguments must be rejected")
+}
+
+@(test)
+test_parse_patches :: proc(t: ^testing.T) {
+	patches, err := parse_patches("got:puts=my_puts; secret=ret:1; hook=jmp:repl")
+	defer delete(patches)
+
+	testing.expect_value(t, err, "")
+	testing.expect_value(t, len(patches), 3)
+
+	testing.expect_value(t, patches[0].kind, Patch_Kind.Got)
+	testing.expect_value(t, patches[0].target, "puts")
+	testing.expect_value(t, patches[0].repl, "my_puts")
+
+	testing.expect_value(t, patches[1].kind, Patch_Kind.Ret)
+	testing.expect_value(t, patches[1].target, "secret")
+	testing.expect_value(t, patches[1].value, 1)
+
+	testing.expect_value(t, patches[2].kind, Patch_Kind.Jmp)
+	testing.expect_value(t, patches[2].target, "hook")
+	testing.expect_value(t, patches[2].repl, "repl")
+
+	empty, eerr := parse_patches("")
+	defer delete(empty)
+	testing.expect_value(t, eerr, "")
+	testing.expect_value(t, len(empty), 0)
+}
+
+@(test)
+test_parse_patches_rejects_junk :: proc(t: ^testing.T) {
+	cases := []string{"noequalssign", "f=ret:", "f=ret:xyz", "got:=target", "f=bogus:1"}
+	for c in cases {
+		p, err := parse_patches(c)
+		defer delete(p)
+		testing.expect(t, err != "", fmt.tprintf("spec %q must be rejected", c))
+	}
 }
 
 @(test)

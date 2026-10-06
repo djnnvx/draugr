@@ -24,6 +24,7 @@ Options :: struct {
 	bin_diff    : string `args:"name=bin-diff" usage:"Diff this binary's layout against a reference ELF."`,
 	call_func   : string `args:"name=call-function" usage:"Load from memory and call this symbol."`,
 	call_args   : string `args:"name=call-args" usage:"Comma-separated args for --call-function: integers, or s:string."`,
+	patch       : string `args:"name=patch" usage:"Semicolon-separated in-memory patches applied before --call-function. Specs: sym=ret:N, sym=jmp:target, got:sym=target."`,
 	checksec    : bool   `usage:"Hardening report: RELRO, NX, canary, PIE, RPATH, FORTIFY."`,
 	relocs      : bool   `usage:"Relocation table and PLT/GOT map."`,
 	info        : bool   `usage:"Print ELF summary only."`,
@@ -61,6 +62,11 @@ main :: proc() {
 	fmt.fprintf(os.stderr, "arch=%-12s class=ELF%d\t%s\t%s\n",
 		elf.machine_to_str(info.header.machine), bits, elf_type, dyn_type)
 	fmt.fprintln(os.stderr, "")
+
+	if opts.patch != "" && opts.call_func == "" {
+		fmt.fprintln(os.stderr, "--patch requires --call-function")
+		os.exit(1)
+	}
 
 	if opts.json {
 		if opts.hexdump || opts.hexdump_out != "" ||
@@ -140,7 +146,7 @@ main :: proc() {
 
 	if opts.call_func != "" {
 		section_header("Call Function", "")
-		report("Call", analysis.call_function(elf_data, &info, opts.elf_path, opts.call_func, opts.call_args), &failed)
+		report("Call", analysis.call_function(elf_data, &info, opts.elf_path, opts.call_func, opts.call_args, opts.patch), &failed)
 		fmt.println("")
 	}
 
