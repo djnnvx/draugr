@@ -43,10 +43,7 @@ rejected alongside `--hexdump`, `--entropy`, `--code`, `--map`, `--bin-diff` and
 
 Both `--flag value` and `--flag=value` work, and a single dash is accepted.
 
-### Output streams
-
-Data goes to `stdout`. Headers, separators and the `arch=` summary go to `stderr`, so
-piped output stays clean.
+### Simple examples
 
 ```sh
 draugr --json /bin/ls | jq .needed
@@ -57,28 +54,6 @@ draugr --sections /bin/ls | awk '$3 == "PROGBITS"'
 draugr --symbols /bin/ls | grep ' U '        # undefined imports
 draugr --bin-diff v1.4.2/httpd v1.4.3/httpd  # what changed between firmware builds
 ```
-
-### Hardening
-
-`--checksec` reports RELRO, stack canary, NX, PIE, RPATH, RUNPATH and FORTIFY. It also
-flags `DT_TEXTREL` and any RWX `PT_LOAD` segment.
-
-Three places where it deliberately disagrees with `checksec(1)`:
-
-- **NX with no `PT_GNU_STACK`** reports `Unknown`.
-- **PIE** separates `PIE`, `Static PIE`, `Shared library` and `ET_EXEC`.
-- **FORTIFY** counts distinct functions. `checksec(1)` counts a function twice when it is
-  imported both fortified and unfortified.
-
-### Relocations
-
-`--relocs` parses `RELA`, `REL` and `RELR`, from section headers when present and from the
-dynamic tags otherwise.
-
-### Dynamic linking
-
-`--info` reports `SONAME`, `RPATH`, `RUNPATH` and the `DT_NEEDED` list. `--info --verbose`
-adds the full `.dynamic` table. Unrecognised `DT_` tags print as hex rather than `UNKNOWN`.
 
 ### Calling a function
 
@@ -94,13 +69,3 @@ draugr --call-function parse --call-args s:AAAA,64 ./libvendor.so
 Arguments are comma-separated: integers (decimal or `0x`), or `s:text` to pass a pointer to
 a NULL-terminated string. Up to six, matching the integer argument registers. Floats and
 structs are not supported, and the return value is read as a 64-bit integer.
-
-`.o` support needs `ld` on `$PATH`, and a cross-linker for a foreign architecture.
-
-### Function starts
-
-`--code` recovers function entry addresses from the `.eh_frame_hdr` binary search table.
-
-draugr does not disassemble; use `objdump -d` for that.
-
-
